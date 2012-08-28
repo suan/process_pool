@@ -1,7 +1,6 @@
 require File.join(File.expand_path(File.dirname(__FILE__)), 'init')
 
 require 'rubygems'
-require 'json'
 require 'tempfile'
 
 class SimpleQueue
@@ -14,8 +13,7 @@ class SimpleQueue
 
   def push(value)
     with_queue_file do |file|
-      contents = file.read
-      queue = JSON.parse(contents)
+      queue = Marshal.load(file)
       queue.push(value)
       store_queue(file, queue)
     end
@@ -36,14 +34,14 @@ class SimpleQueue
   def size
     contents = ''
     with_queue_file do |file|
-      contents = file.read
+      contents = Marshal.load(file)
     end
-    return JSON.parse(contents).size
+    return contents.size
   end
 
   def self.create
     file = Tempfile.new('simple_queue')
-    file.puts [].to_json
+    Marshal.dump([], file)
     uri = file.path
     file.close
     return new(uri)
@@ -74,15 +72,14 @@ class SimpleQueue
     file.truncate(0)
     file.seek(0)
 
-    file.puts queue.to_json
+    Marshal.dump queue, file
   end
 
   def pop_nowait
     queue_empty = true
     result = nil
     with_queue_file do |file|
-      contents = file.read
-      queue = JSON.parse(contents)
+      queue = Marshal.load(file)
       unless queue.empty?
         queue_empty = false
         result = queue.shift
